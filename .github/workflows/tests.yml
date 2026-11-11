@@ -13,7 +13,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Free Up Disk Space
+      - name: Free Disk Space on macOS Runner
         run: |
           sudo rm -rf /Users/runner/Library/Android
           sudo rm -rf /Library/Developer/CoreSimulator/Volumes/*
@@ -21,42 +21,39 @@ jobs:
           brew cleanup --prune=0 2>/dev/null || true
           df -h
 
-      - name: Setup Tools & gdown
+      - name: Install Build Dependencies & gdown
         run: |
           python3 -m pip install --upgrade pip gdown
           brew install cmake ninja
 
-      - name: Download Files from Google Drive
+      - name: Download Keys, Base Game, and Update from Google Drive
         run: |
-          mkdir -p files
-          gdown --fuzzy "${{ secrets.PROD_KEYS_URL }}" -O files/prod.keys
-          gdown --fuzzy "${{ secrets.GAME_URL }}" -O files/game.nsp
-          gdown --fuzzy "${{ secrets.UPDATE_URL }}" -O files/update.nsp
+          mkdir -p ~/GameInput ~/Keys
           
-          # Verify no HTML error pages were downloaded instead of real files
-          for f in files/*; do
+          # Download prod.keys
+          gdown --fuzzy "${{ secrets.PROD_KEYS_URL }}" -O ~/Keys/prod.keys
+          
+          # Download 13GB Base Game (.nsp)
+          gdown --fuzzy "${{ secrets.BASE_NSP_URL }}" -O ~/GameInput/fifa22_base.nsp
+          
+          # Download Game Update (.nsp)
+          gdown --fuzzy "${{ secrets.UPDATE_NSP_URL }}" -O ~/GameInput/fifa22_update.nsp
+          
+          # Verify real files were downloaded (not Google Drive HTML warning pages)
+          for f in ~/GameInput/* ~/Keys/*; do
             if head -c 100 "$f" | grep -qi "<!DOCTYPE html>"; then
-              echo "ERROR: $f downloaded an HTML page. Check Google Drive 'Anyone with the link' permissions!"
+              echo "ERROR: $f is an HTML webpage! Check 'Anyone with the link' in Google Drive."
               exit 1
             fi
           done
-          ls -lh files/
+          
+          ls -lh ~/GameInput ~/Keys
 
-      - name: Build IPA
+      - name: Build IPA from NSP
         run: |
-          if [ -f "scripts/build_ipa.py" ]; then
-            python3 scripts/build_ipa.py --keys files/prod.keys --game files/game.nsp --update files/update.nsp --output FIFA22.ipa
-          elif [ -f "build_ipa.py" ]; then
-            python3 build_ipa.py --keys files/prod.keys --game files/game.nsp --update files/update.nsp --output FIFA22.ipa
-          elif [ -f "build.py" ]; then
-            python3 build.py --keys files/prod.keys --game files/game.nsp --update files/update.nsp --output FIFA22.ipa
-          else
-            echo "Listing repo files to check structure:"
-            ls -la
-            exit 1
-          fi
+          python3 scripts/build_ipa_from_nsp.py ~/GameInput -k ~/Keys/prod.keys --romfs separate
 
-      - name: Upload IPA
+      - name: Upload Compiled IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FIFA22-IPA
