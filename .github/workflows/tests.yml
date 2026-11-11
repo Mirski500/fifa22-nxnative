@@ -30,8 +30,9 @@ jobs:
           KEYS_URL: ${{ secrets.PROD_KEYS_URL }}
         run: |
           mkdir -p ~/GameInput ~/Keys
-          curl -L -e "$GAME_URL" "${GAME_URL%/}/download" -o ~/GameInput/fifa22_base.nsp
-          gdown --fuzzy "$UPDATE_URL" -O ~/GameInput/fifa22_update_1.0.5.nsp
+          REAL_GAME_URL=$(curl -sI -H "hx-current-url: $GAME_URL" -H "referer: $GAME_URL" "${GAME_URL%/}/download" | grep -i '^hx-redirect:' | awk '{print $2}' | tr -d '\r')
+          curl -L "$REAL_GAME_URL" -o ~/GameInput/fifa22_base.nsp
+          gdown "$UPDATE_URL" -O ~/GameInput/fifa22_update_1.0.5.nsp
           curl -L "$KEYS_URL" -o ~/Keys/prod.keys
           ls -lh ~/GameInput ~/Keys
 
