@@ -1,0 +1,45 @@
+name: Build FIFA 22 IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+
+    steps:
+      - name: Free up disk space on runner
+        run: |
+          sudo rm -rf /Applications/Xcode_15*.app
+          sudo rm -rf /Users/runner/Library/Android
+          df -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install xcodegen zstd glslang
+          brew install --cask dotnet-sdk
+          python3 -m pip install lz4 "capstone>=5,<6" fonttools nsz zbic
+
+      - name: Download game files, update, and keys
+        env:
+          GAME_URL: ${{ secrets.GAME_NSP_URL }}
+          UPDATE_URL: ${{ secrets.UPDATE_NSP_URL }}
+          KEYS_URL: ${{ secrets.PROD_KEYS_URL }}
+        run: |
+          mkdir -p ~/GameInput ~/Keys
+          curl -L "$GAME_URL" -o ~/GameInput/fifa22_base.nsp
+          curl -L "$UPDATE_URL" -o ~/GameInput/fifa22_update_1.0.5.nsp
+          curl -L "$KEYS_URL" -o ~/Keys/prod.keys
+
+      - name: Build unsigned IPA
+        run: |
+          python3 scripts/build_ipa_from_nsp.py ~/GameInput -k ~/Keys/prod.keys
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fifa22-unsigned-ipa
+          path: ~/GameInput/*.ipa
