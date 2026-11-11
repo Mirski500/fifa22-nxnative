@@ -4,45 +4,61 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-ios:
-    runs-on: macos-15
+  build:
+    runs-on: macos-latest
 
     steps:
-      - name: Free up disk space on runner
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Free Up Disk Space
         run: |
-          sudo rm -rf /Applications/Xcode_15*.app
           sudo rm -rf /Users/runner/Library/Android
+          sudo rm -rf /Library/Developer/CoreSimulator/Volumes/*
+          sudo rm -rf /Library/Developer/CoreSimulator/Caches/*
+          brew cleanup --prune=0 2>/dev/null || true
           df -h
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
+      - name: Setup Tools & gdown
         run: |
-          brew install xcodegen zstd glslang
-          brew install --cask dotnet-sdk
-          python3 -m pip install --break-system-packages lz4 "capstone>=5,<6" fonttools nsz zbic gdown
+          python3 -m pip install --upgrade pip gdown
+          brew install cmake ninja
 
-      - name: Download game files, update, and keys
-        env:
-          GAME_URL: ${{ secrets.GAME_NSP_URL }}
-          UPDATE_URL: ${{ secrets.UPDATE_NSP_URL }}
-          KEYS_URL: ${{ secrets.PROD_KEYS_URL }}
+      - name: Download Files from Google Drive
         run: |
-          mkdir -p ~/GameInput ~/Keys
-          gdown "$(echo "$GAME_URL" | tr -d '[:space:]')" -O ~/GameInput/fifa22_base.nsp
-          gdown "$(echo "$UPDATE_URL" | tr -d '[:space:]')" -O ~/GameInput/fifa22_update_1.0.5.nsp
-          gdown "$(echo "$KEYS_URL" | tr -d '[:space:]')" -O ~/Keys/prod.keys
-          ls -lh ~/GameInput ~/Keys
+          mkdir -p files
+          gdown --fuzzy "${{ secrets.PROD_KEYS_URL }}" -O files/prod.keys
+          gdown --fuzzy "${{ secrets.GAME_URL }}" -O files/game.nsp
+          gdown --fuzzy "${{ secrets.UPDATE_URL }}" -O files/update.nsp
+          
+          # Verify no HTML error pages were downloaded instead of real files
+          for f in files/*; do
+            if head -c 100 "$f" | grep -qi "<!DOCTYPE html>"; then
+              echo "ERROR: $f downloaded an HTML page. Check Google Drive 'Anyone with the link' permissions!"
+              exit 1
+            fi
+          done
+          ls -lh files/
 
-      - name: Build unsigned IPA with separate RomFS
+      - name: Build IPA
         run: |
-          python3 scripts/build_ipa_from_nsp.py ~/GameInput -k ~/Keys/prod.keys --romfs separate
+          if [ -f "scripts/build_ipa.py" ]; then
+            python3 scripts/build_ipa.py --keys files/prod.keys --game files/game.nsp --update files/update.nsp --output FIFA22.ipa
+          elif [ -f "build_ipa.py" ]; then
+            python3 build_ipa.py --keys files/prod.keys --game files/game.nsp --update files/update.nsp --output FIFA22.ipa
+          elif [ -f "build.py" ]; then
+            python3 build.py --keys files/prod.keys --game files/game.nsp --update files/update.nsp --output FIFA22.ipa
+          else
+            echo "Listing repo files to check structure:"
+            ls -la
+            exit 1
+          fi
 
-      - name: Upload IPA and RomFS Artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: fifa22-ipa-and-romfs
-          path: |
-            ~/GameInput/*.ipa
-            ~/GameInput/romfs
+          name: FIFA22-IPA
+          path: "**/*.ipa"
+          retention-days: 5
