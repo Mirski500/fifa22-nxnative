@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install xcodegen zstd glslang jq
+          brew install xcodegen zstd glslang
           brew install --cask dotnet-sdk
           python3 -m pip install --break-system-packages lz4 "capstone>=5,<6" fonttools nsz zbic gdown
 
@@ -30,19 +30,9 @@ jobs:
           KEYS_URL: ${{ secrets.PROD_KEYS_URL }}
         run: |
           mkdir -p ~/GameInput ~/Keys
-
-          # Download Base Game from Gofile
-          GOFILE_ID=$(basename "$GAME_URL")
-          GOFILE_TOKEN=$(curl -s -X POST https://gofile.io | jq -r '.data.token')
-          DIRECT_URL=$(curl -s -H "Authorization: Bearer $GOFILE_TOKEN" "https://gofile.io" | jq -r '.data.children | to_entries[0].value.link')
-          curl -fL -H "Cookie: accountToken=$GOFILE_TOKEN" "$DIRECT_URL" -o ~/GameInput/fifa22_base.nsp
-
-          # Download Update 1.0.5 from Google Drive
+          gdown "$GAME_URL" -O ~/GameInput/fifa22_base.nsp
           gdown "$UPDATE_URL" -O ~/GameInput/fifa22_update_1.0.5.nsp
-
-          # Download prod.keys from Dropbox
           curl -fL "$KEYS_URL" -o ~/Keys/prod.keys
-
           ls -lh ~/GameInput ~/Keys
 
       - name: Build unsigned IPA with separate RomFS
