@@ -30,8 +30,8 @@ jobs:
           KEYS_URL: ${{ secrets.PROD_KEYS_URL }}
         run: |
           mkdir -p ~/GameInput ~/Keys
-          curl -L "$GAME_URL" -o ~/GameInput/fifa22_base.nsp
-          curl -L "$UPDATE_URL" -o ~/GameInput/fifa22_update_1.0.5.nsp
+          curl -L -e "$GAME_URL" "${GAME_URL%/}/download" -o ~/GameInput/fifa22_base.nsp
+          curl -L -e "$UPDATE_URL" "${UPDATE_URL%/}/download" -o ~/GameInput/fifa22_update_1.0.5.nsp
           curl -L "$KEYS_URL" -o ~/Keys/prod.keys
           ls -lh ~/GameInput ~/Keys
 
@@ -46,4 +46,3 @@ jobs:
           path: |
             ~/GameInput/*.ipa
             ~/GameInput/romfs
-
