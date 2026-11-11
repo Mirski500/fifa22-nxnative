@@ -33,13 +33,17 @@ jobs:
           curl -L "$GAME_URL" -o ~/GameInput/fifa22_base.nsp
           curl -L "$UPDATE_URL" -o ~/GameInput/fifa22_update_1.0.5.nsp
           curl -L "$KEYS_URL" -o ~/Keys/prod.keys
+          ls -lh ~/GameInput ~/Keys
 
-      - name: Build unsigned IPA
+      - name: Build unsigned IPA with separate RomFS
         run: |
-          python3 scripts/build_ipa_from_nsp.py ~/GameInput -k ~/Keys/prod.keys
+          python3 scripts/build_ipa_from_nsp.py ~/GameInput -k ~/Keys/prod.keys --romfs separate
 
-      - name: Upload IPA Artifact
+      - name: Upload IPA and RomFS Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fifa22-unsigned-ipa
-          path: ~/GameInput/*.ipa
+          name: fifa22-ipa-and-romfs
+          path: |
+            ~/GameInput/*.ipa
+            ~/GameInput/romfs
+
