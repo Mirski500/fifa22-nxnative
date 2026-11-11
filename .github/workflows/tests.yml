@@ -30,9 +30,10 @@ jobs:
           KEYS_URL: ${{ secrets.PROD_KEYS_URL }}
         run: |
           mkdir -p ~/GameInput ~/Keys
-          gdown "$GAME_URL" -O ~/GameInput/fifa22_base.nsp
+          GAME_ID=$(echo "$GAME_URL" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/; s/.*id=([a-zA-Z0-9_-]+).*/\1/')
+          curl -fL "https://google.com{GAME_ID}&export=download&confirm=t" -o ~/GameInput/fifa22_base.nsp
           gdown "$UPDATE_URL" -O ~/GameInput/fifa22_update_1.0.5.nsp
-          curl -fL "$KEYS_URL" -o ~/Keys/prod.keys
+          gdown "$KEYS_URL" -O ~/Keys/prod.keys
           ls -lh ~/GameInput ~/Keys
 
       - name: Build unsigned IPA with separate RomFS
