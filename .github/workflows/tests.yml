@@ -19,29 +19,27 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install xcodegen zstd glslang
+          brew install xcodegen zstd glslang unrar
           brew install --cask dotnet-sdk
           python3 -m pip install --break-system-packages lz4 "capstone>=5,<6" fonttools nsz zbic gdown
 
       - name: Download game files, update, and keys
         env:
+          GAME_URL: ${{ secrets.GAME_NSP_URL }}
           UPDATE_URL: ${{ secrets.UPDATE_NSP_URL }}
           KEYS_URL: ${{ secrets.PROD_KEYS_URL }}
         run: |
           mkdir -p ~/GameInput ~/Keys
-          python3 -c '
-          import urllib.request, urllib.parse, re, http.cookiejar
-          cj = http.cookiejar.CookieJar()
-          opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-          html = opener.open("https://google.com").read().decode("utf-8", "ignore")
-          inputs = dict(re.findall(r"name=\"([^\"]+)\"\s+value=\"([^\"]*)\"", html))
-          url = "https://google.com?" + urllib.parse.urlencode(inputs) if inputs else "https://google.com?id=1sBuy3Mx8Fr9muPDWOIyNjZWpeUF5qW1v&export=download&confirm=t"
-          with opener.open(url) as r, open("/Users/runner/GameInput/fifa22_base.nsp", "wb") as f:
-              while chunk := r.read(1024*1024): f.write(chunk)
-          '
+          gdown "$(echo "$GAME_URL" | tr -d '[:space:]')" -O ~/GameInput/fifa22_base.nsp
           gdown "$(echo "$UPDATE_URL" | tr -d '[:space:]')" -O ~/GameInput/fifa22_update_1.0.5.nsp
           gdown "$(echo "$KEYS_URL" | tr -d '[:space:]')" -O ~/Keys/prod.keys
           ls -lh ~/GameInput ~/Keys
+          file ~/GameInput/*
+          if file ~/GameInput/fifa22_base.nsp | grep -qi "RAR archive"; then
+            mv ~/GameInput/fifa22_base.nsp ~/GameInput/base.rar
+            unrar x -o+ ~/GameInput/base.rar ~/GameInput/
+            rm ~/GameInput/base.rar
+          fi
 
       - name: Build unsigned IPA with separate RomFS
         run: |
