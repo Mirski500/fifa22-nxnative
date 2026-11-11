@@ -29,7 +29,16 @@ jobs:
           KEYS_URL: ${{ secrets.PROD_KEYS_URL }}
         run: |
           mkdir -p ~/GameInput ~/Keys
-          curl -fL "https://google.com" -o ~/GameInput/fifa22_base.nsp
+          python3 -c '
+          import urllib.request, urllib.parse, re, http.cookiejar
+          cj = http.cookiejar.CookieJar()
+          opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+          html = opener.open("https://google.com").read().decode("utf-8", "ignore")
+          inputs = dict(re.findall(r"name=\"([^\"]+)\"\s+value=\"([^\"]*)\"", html))
+          url = "https://google.com?" + urllib.parse.urlencode(inputs) if inputs else "https://google.com?id=1sBuy3Mx8Fr9muPDWOIyNjZWpeUF5qW1v&export=download&confirm=t"
+          with opener.open(url) as r, open("/Users/runner/GameInput/fifa22_base.nsp", "wb") as f:
+              while chunk := r.read(1024*1024): f.write(chunk)
+          '
           gdown "$(echo "$UPDATE_URL" | tr -d '[:space:]')" -O ~/GameInput/fifa22_update_1.0.5.nsp
           gdown "$(echo "$KEYS_URL" | tr -d '[:space:]')" -O ~/Keys/prod.keys
           ls -lh ~/GameInput ~/Keys
